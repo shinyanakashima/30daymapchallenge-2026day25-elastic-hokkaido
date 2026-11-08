@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Elastic Hokkaido</title>
+<meta name="description" content="A cartogram of Hokkaido where the unit of the map is driving time instead of kilometres. #30DayMapChallenge 2026 Day 25: Is this a map?">
+<meta property="og:title" content="Elastic Hokkaido">
+<meta property="og:description" content="Hokkaido redrawn with driving time as the unit, summer and winter. #30DayMapChallenge 2026 Day 25">
+<meta property="og:image" content="screenshot.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="title">
+    <h1>Elastic Hokkaido</h1>
+    <p class="sub" data-i18n="subtitle"></p>
+  </div>
+  <div class="lang" role="group" aria-label="Language">
+    <button type="button" data-lang="en" aria-pressed="true">EN</button>
+    <button type="button" data-lang="ja" aria-pressed="false">日本語</button>
+  </div>
+</header>
+
+<main>
+  <section class="stage" aria-label="Map">
+    <canvas id="map" aria-hidden="true"></canvas>
+    <div id="labels" class="labels" aria-hidden="true"></div>
+    <div class="scale" id="scale"><span class="bar"></span><span class="txt"></span></div>
+    <div class="legend" id="legend"></div>
+    <p class="stagecap" id="stagecap"></p>
+  </section>
+
+  <aside class="panel">
+    <div class="ctl">
+      <span class="lbl" data-i18n="unit"></span>
+      <div class="seg" role="group" id="unit">
+        <button type="button" data-v="km" data-i18n="unit_km"></button>
+        <button type="button" data-v="summer" data-i18n="unit_summer"></button>
+        <button type="button" data-v="winter" data-i18n="unit_winter"></button>
+      </div>
+    </div>
+    <div class="ctl">
+      <span class="lbl" data-i18n="method"></span>
+      <div class="seg" role="group" id="method">
+        <button type="button" data-v="radial" data-i18n="method_radial"></button>
+        <button type="button" data-v="mds" data-i18n="method_mds"></button>
+      </div>
+    </div>
+    <div class="ctl">
+      <span class="lbl" data-i18n="center"></span>
+      <div class="seg" role="group" id="center">
+        <button type="button" data-v="sapporo" data-i18n="c_sapporo"></button>
+        <button type="button" data-v="obihiro" data-i18n="c_obihiro"></button>
+      </div>
+    </div>
+    <div class="ctl">
+      <label class="lbl" for="morph" data-i18n="morph"></label>
+      <input type="range" id="morph" min="0" max="2" step="0.01" value="1">
+      <div class="ticks"><span data-i18n="tick0"></span><span data-i18n="tick1"></span><span data-i18n="tick2"></span></div>
+    </div>
+    <p class="fit" id="fit"></p>
+    <div class="info" id="info" aria-live="polite"></div>
+    <div class="far" id="far"></div>
+    <details class="notes">
+      <summary data-i18n="notes_h"></summary>
+      <div id="notes"></div>
+    </details>
+  </aside>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
