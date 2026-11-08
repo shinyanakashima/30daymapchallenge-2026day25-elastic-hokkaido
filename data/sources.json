@@ -1,0 +1,11 @@
+{
+  "osrm": "v5.27.1",
+  "osm_date": "2026-11-07",
+  "ferry_kmh": 30,
+  "sources": [
+    {"title": "© OpenStreetMap contributors (ODbL)", "url": "https://www.openstreetmap.org/copyright", "note": "Hokkaido extract, data as of 2026-11-07"},
+    {"title": "OSRM (Open Source Routing Machine) v5.27.1", "url": "https://project-osrm.org/"},
+    {"title": "国土数値情報（行政区域データ N03, 2026年1月1日時点）を加工して作成", "url": "https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-2026.html"},
+    {"title": "国土数値情報（市町村役場等及び公的集会施設データ P05, 2022年）を加工して作成", "url": "https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-P05-2022.html"}
+  ]
+}

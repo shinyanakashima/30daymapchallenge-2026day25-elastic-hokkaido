@@ -1,0 +1,15 @@
+{
+  "factors": {
+    "motorway": 0.88, "motorway_link": 0.88, "trunk": 0.88, "trunk_link": 0.88,
+    "primary": 0.88, "primary_link": 0.88, "secondary": 0.88, "secondary_link": 0.88,
+    "default": 0.80
+  },
+  "display": {"motorway to secondary roads": 0.88, "other roads (tertiary, residential, etc.)": 0.80},
+  "display_ja": {"高速道路〜二次道路（motorway〜secondary）": 0.88, "その他の道路（tertiary・住宅地の道路など）": 0.80},
+  "basis_en": "0.88 is the winter factor for snow/ice-covered roads in good visibility used by 北の道ナビ (12% lower speed; PWRI/CERI report No. 220, 2014). 0.80 follows the autumn-to-winter drop of travel speed on Sapporo's national roads in the 2005 road traffic census (−15% to −20%, Hokkaido Regional Development Bureau, 2010). Assigning the first value to inter-town road classes and the second to the rest is this project's assumption.",
+  "basis_ja": "0.88 は北の道ナビの冬の所要時間計算で、視程が良く路面が雪氷の場合に使われる値（速度12%低下、土木研究所報告第220号 2014）。0.80 は平成17年道路交通センサスで札幌市の一般国道の旅行速度が秋から冬に15〜20%下がったこと（北海道開発局 2010）に基づく。前者を町と町を結ぶ道路の種類に、後者をその他の道路に当てはめたのはこの作品の仮定です。",
+  "sources": [
+    {"title": "土木研究所報告 第220号「冬期道路の安全性・効率性向上に関する研究」(2014), §5.5 表-5.9", "url": "https://thesis.pwri.go.jp/files/doken_houkoku_0220_01.pdf"},
+    {"title": "北海道開発局「資料２ 北海道地方の課題と道路における取組について」(2010-12-14) p.8", "url": "https://www.hkd.mlit.go.jp/ky/kn/dou_kei/splaat0000016fjv-att/splaat0000016fqh.pdf"}
+  ]
+}
