@@ -126,7 +126,7 @@
     const vals = D.towns.map(t => st.unit === "km" ? t[`km_${st.center}`] : t[`min_${st.unit}_${st.center}`] / 60 * k);
     // the line shares the map's scale: 1 px = the same km (or the same km-equivalent of time)
     const x0 = sx(view.bbox.x0) + 6;
-    const yMid = view.h - (view.w < 560 ? 76 : 30) - 70;
+    const yMid = Math.round(view.h * 0.52);
     const r = 3.6;
     const order = vals.map((v, i) => i).sort((a, b) => vals[a] - vals[b]);
     const placed = [];
@@ -247,7 +247,7 @@
       ctx.globalAlpha = s2;
       ctx.strokeStyle = css.getPropertyValue("--ink"); ctx.fillStyle = css.getPropertyValue("--muted");
       ctx.lineWidth = 1; ctx.font = "11px system-ui, sans-serif"; ctx.textAlign = "center";
-      const yA = view.h - (view.w < 560 ? 76 : 30);
+      const yA = L.yMid + 78;
       ctx.beginPath(); ctx.moveTo(L.x0, yA); ctx.lineTo(L.x0 + L.max * view.scale, yA); ctx.stroke();
       const isKm = st.unit === "km";
       const stepW = isKm ? 50 : k; // 50 km or 1 h
