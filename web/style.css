@@ -53,7 +53,15 @@ main { flex: 1; display: flex; min-height: 0; }
 .legend .row { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
 .legend .sw { width: 12px; height: 12px; border-radius: 50%; flex: none; border: 1px solid #0003; }
 .legend .ln { width: 18px; height: 0; border-top: 1.5px dashed var(--ghost); flex: none; }
-.stagecap { position: absolute; left: 16px; top: 6px; margin: 0; color: var(--muted); font-size: 12px; max-width: 70%; }
+.stagecap { position: absolute; left: 16px; top: 8px; margin: 0; color: var(--ink); font-size: 17px; font-weight: 600; max-width: calc(100% - 110px); line-height: 1.3; }
+#snow { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.snowbtn {
+  position: absolute; right: 12px; top: 8px; font: inherit; font-size: 12px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--btn); color: var(--ink); padding: 4px 10px; border-radius: 6px;
+}
+.snowbtn[aria-pressed="true"] { background: var(--btn-on); color: var(--btn-on-ink); border-color: var(--btn-on); }
+body { transition: background-color 1.1s; }
+body.winter { --bg: #eceff2; }
 .panel {
   width: 340px; flex: none; overflow-y: auto; padding: 8px 16px 16px; background: var(--panel);
   border-left: 1px solid var(--line);
@@ -91,10 +99,11 @@ a { color: inherit; }
   .panel { width: auto; border-left: 0; border-top: 1px solid var(--line); overflow: visible; }
   h1 { font-size: 19px; }
   .sub { font-size: 13px; }
+  .stagecap { font-size: 15px; }
   .legend { left: 8px; right: 8px; bottom: 6px; max-width: none; font-size: 11px; display: flex; flex-wrap: wrap; column-gap: 10px; row-gap: 0; align-items: center; }
   .legend > div:first-child { flex-basis: 100%; }
   .legend .row { margin: 1px 0; }
   .legend .sw { width: 10px; height: 10px; }
-  .scale { bottom: 62px; }
+  .scale { bottom: 80px; }
   .labels span { font-size: 11px; }
 }
