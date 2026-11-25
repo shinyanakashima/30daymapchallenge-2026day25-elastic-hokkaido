@@ -1,10 +1,13 @@
-// Record a short walkthrough of the live page: docs/elastic-hokkaido.mp4 (1080x1080).
-// usage: node tests/record_video.cjs [url]
+// Record a short walkthrough of the page.
+// usage: node tests/record_video.cjs [url] [square|wide]
+//   square: docs/elastic-hokkaido.mp4 (1080x1080), wide: docs/elastic-hokkaido-wide.mp4 (1920x1080)
 const { chromium } = require("playwright");
 const { execFileSync } = require("child_process");
 const fs = require("fs");
 const url = process.argv[2] || "https://shinyanakashima.github.io/30daymapchallenge-2026day25-elastic-hokkaido/";
-const W = 1080, H = 1080;
+const wide = process.argv[3] === "wide";
+const [W, H] = wide ? [1920, 1080] : [1080, 1080];
+const out = wide ? "docs/elastic-hokkaido-wide.mp4" : "docs/elastic-hokkaido.mp4";
 (async () => {
   const dir = "build/video";
   fs.rmSync(dir, { recursive: true, force: true });
@@ -33,6 +36,6 @@ const W = 1080, H = 1080;
   const v = p.video();
   await ctx.close(); await b.close();
   const webm = await v.path();
-  execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-ss", "1.2", "-i", webm, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20", "-preset", "slow", "-r", "30", "-movflags", "+faststart", "docs/elastic-hokkaido.mp4"]);
-  console.log("docs/elastic-hokkaido.mp4", (fs.statSync("docs/elastic-hokkaido.mp4").size / 1e6).toFixed(1), "MB");
+  execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-ss", "1.2", "-i", webm, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20", "-preset", "slow", "-r", "30", "-movflags", "+faststart", out]);
+  console.log(out, (fs.statSync(out).size / 1e6).toFixed(1), "MB");
 })();
