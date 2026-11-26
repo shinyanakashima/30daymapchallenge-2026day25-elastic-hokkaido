@@ -3,7 +3,6 @@
 
   const T = {
     en: {
-      subtitle: "Hokkaido redrawn with driving time as the unit of the map. Directions and neighbours stay; kilometres go.",
       unit: "Unit of the map", unit_km: "km (normal map)", unit_summer: "Drive time, summer", unit_winter: "Drive time, winter",
       method: "How towns are placed", method_radial: "Radial from a centre", method_mds: "All town pairs (MDS)",
       center: "Centre", c_sapporo: "Sapporo", c_obihiro: "Obihiro",
@@ -24,7 +23,6 @@
       hm: m => { m = Math.round(m); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")} min` : `${m} min`; },
     },
     ja: {
-      subtitle: "地図の単位を km から車の移動時間に取り替えて、北海道を描き直しました。方角と隣り合う関係はそのままです。",
       unit: "地図の単位", unit_km: "km（普通の地図）", unit_summer: "車の時間・夏", unit_winter: "車の時間・冬",
       method: "町の置き方", method_radial: "中心型（中心からの時間）", method_mds: "全点型（全ての町の組・MDS）",
       center: "中心", c_sapporo: "札幌", c_obihiro: "帯広",
