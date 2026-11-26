@@ -20,7 +20,7 @@
       fit: (m, r) => `Distances on this drawing vs. drive times: off by ${m}% (median), ${r} min (RMSE) over all 15,931 town pairs.`,
       t_unit: { km: "Normal map (km)", summer: "Summer drive time", winter: "Winter drive time" },
       t_radial: c => `from ${c}`, t_mds: "all town pairs", t_line: c => `lined up from ${c}`,
-      axis_h: "h", axis_km: "km", snow_on: "Snow: on", snow_off: "Snow: off",
+      axis_h: "h", axis_km: "km", snow_on: "Effects: on", snow_off: "Effects: off",
       hm: m => { m = Math.round(m); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")} min` : `${m} min`; },
     },
     ja: {
@@ -41,7 +41,7 @@
       fit: (m, r) => `この図の上の距離と移動時間のずれ：中央値 ${m}%、RMSE ${r} 分（全15,931組）。`,
       t_unit: { km: "普通の地図（km）", summer: "夏の移動時間", winter: "冬の移動時間" },
       t_radial: c => `${c}から`, t_mds: "全ての町の組", t_line: c => `${c}から1本の線に`,
-      axis_h: "時間", axis_km: "km", snow_on: "雪：オン", snow_off: "雪：オフ",
+      axis_h: "時間", axis_km: "km", snow_on: "演出：オン", snow_off: "演出：オフ",
       hm: m => { m = Math.round(m); return m >= 60 ? `${Math.floor(m / 60)}時間${String(m % 60).padStart(2, "0")}分` : `${m}分`; },
     },
   };
@@ -54,6 +54,7 @@
   const canvas = document.getElementById("map");
   const ctx = canvas.getContext("2d");
   const labelsEl = document.getElementById("labels");
+  const stage = document.querySelector(".stage");
   const morph = document.getElementById("morph");
 
   let D, N, NV, k;
@@ -61,7 +62,8 @@
   const st = { unit: "summer", method: "radial", center: "sapporo", s: 1, sel: null, snow: true };
   let anim = null;           // {from:{V,P}, to:{V,P}, t0, dur}
   let prevShape = null;      // {V, until}: outline of the previous state, fades after a change
-  let wmix = 0, wFrom = 0;   // 0 = summer colours, 1 = winter colours
+  let wmix = 0, wFrom = 0;   // 1 = winter look
+  let smix = 0, sFrom = 0;   // 1 = summer look
   let curKey = null;
   const FADE = 2500;
   let VT, PT;                // currently displayed target (animated)
@@ -81,13 +83,13 @@
     if (["radial", "mds"].includes(h.get("method"))) st.method = h.get("method");
     if (["sapporo", "obihiro"].includes(h.get("center"))) st.center = h.get("center");
     if (["en", "ja"].includes(h.get("lang"))) lang = h.get("lang");
-    if (h.get("snow") === "0") st.snow = false;
+    if (h.get("fx") === "0" || h.get("snow") === "0") st.snow = false;
     const sv = parseFloat(h.get("s"));
     if (sv >= 0 && sv <= 2) { st.s = sv; st.fixedS = true; }
   }
   function writeHash() {
     const h = new URLSearchParams({ unit: st.unit, method: st.method, center: st.center, lang });
-    if (!st.snow) h.set("snow", "0");
+    if (!st.snow) h.set("fx", "0");
     history.replaceState(null, "", "#" + h.toString());
   }
 
@@ -165,17 +167,15 @@
     } else prevShape = null;
     curKey = newKey;
     if (!VT || !animate || reduceMotion.matches) {
-      VT = to.V; PT = to.P; anim = null; wmix = wTo; applyWinter(); draw(); startSnow();
+      VT = to.V; PT = to.P; anim = null; wmix = wTo; smix = st.unit === "summer" ? 1 : 0; draw(); startSnow();
       if (prevShape) setTimeout(() => { prevShape = null; draw(); }, FADE);
       return;
     }
-    wFrom = wmix;
-    anim = { from: { V: VT.slice(), P: PT.slice() }, to, t0: performance.now(), dur: 1100, wTo };
-    applyWinter();
+    wFrom = wmix; sFrom = smix;
+    anim = { from: { V: VT.slice(), P: PT.slice() }, to, t0: performance.now(), dur: 1100, wTo, sTo: st.unit === "summer" ? 1 : 0 };
     requestAnimationFrame(tick);
     startSnow();
   }
-  function applyWinter() { document.body.classList.toggle("winter", st.unit === "winter"); }
   const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
   function tick(now) {
     if (!anim) return;
@@ -185,6 +185,7 @@
     for (let i = 0; i < VT.length; i++) VT[i] = a.V[i] + (b.V[i] - a.V[i]) * e;
     for (let i = 0; i < PT.length; i++) PT[i] = a.P[i] + (b.P[i] - a.P[i]) * e;
     wmix = wFrom + (anim.wTo - wFrom) * e;
+    smix = sFrom + (anim.sTo - sFrom) * e;
     draw();
     if (t < 1) requestAnimationFrame(tick); else { anim = null; VT = b.V; PT = b.P; draw(); requestAnimationFrame(fadeTick); }
   }
@@ -219,7 +220,11 @@
     }
     const css = getComputedStyle(document.documentElement);
     const landAlpha = 1 - 0.9 * s2;
-    const landCol = mixHex("#e4ded2", "#dfe5ec", wmix);
+    const landCol = mixHex(mixHex("#e4ded2", "#e2e4cf", smix), "#e3e8ee", wmix);
+    // winter: the sea turns slate so the island and the snow stand out (not on the line)
+    const dark = wmix * (1 - Math.min(1, s2 * 2));
+    stage.style.backgroundColor = mixHex("#f4f2ee", "#3b4a5a", dark);
+    stage.classList.toggle("dark", dark > 0.5);
 
     // land
     polyPaths = [];
@@ -240,7 +245,7 @@
     ctx.strokeStyle = css.getPropertyValue("--land-edge"); ctx.lineWidth = 0.8;
     for (const p of polyPaths) ctx.stroke(p);
     // coast
-    ctx.strokeStyle = css.getPropertyValue("--coast"); ctx.lineWidth = 1;
+    ctx.strokeStyle = mixHex("#6b6559", "#1f2a35", dark); ctx.lineWidth = 1;
     ctx.beginPath();
     for (const ln of D.coast) {
       ctx.moveTo(vx[ln[0]], vy[ln[0]]);
@@ -263,11 +268,11 @@
       ctx.stroke(); ctx.restore();
     };
     // the summer shape while looking at winter
-    if (st.unit === "winter" && s1 > 0) outline(D._ghost, css.getPropertyValue("--ghost"), 1);
+    if (st.unit === "winter" && s1 > 0) outline(D._ghost, mixHex("#2f6fb0", "#a9d2ff", dark), 1);
     // the previous shape, fading out after a change
     if (prevShape && s1 > 0) {
       const left = prevShape.until - performance.now();
-      outline(prevShape.V, css.getPropertyValue("--coast"), anim ? 1 : Math.max(0, Math.min(1, left / FADE)));
+      outline(prevShape.V, mixHex("#6b6559", "#e6ebf0", dark), anim ? 1 : Math.max(0, Math.min(1, left / FADE)));
     }
     ctx.globalAlpha = 1;
 
@@ -356,7 +361,7 @@
     }
     document.querySelectorAll("#method button").forEach(b => b.disabled = st.unit === "km");
     const sb = document.getElementById("snowbtn");
-    sb.hidden = st.unit !== "winter";
+    sb.hidden = st.unit === "km";
     sb.setAttribute("aria-pressed", String(st.snow));
     sb.textContent = st.snow ? L.snow_on : L.snow_off;
     // caption
@@ -473,13 +478,17 @@
   const snowCanvas = document.getElementById("snow");
   const sctx = snowCanvas.getContext("2d");
   let flakes = [], snowLast = 0, snowRunning = false;
-  function snowAlpha() {
-    const lineFade = 1 - Math.max(0, Math.min(1, (st.s - 1) * 2));
-    return st.snow ? wmix * lineFade : 0;
-  }
+  let clouds = [];
+  const lineFade = () => 1 - Math.max(0, Math.min(1, (st.s - 1) * 2));
+  function snowAlpha() { return st.snow ? wmix * lineFade() : 0; }
+  function cloudAlpha() { return st.snow ? smix * lineFade() : 0; }
   function makeFlakes() {
     const r = snowCanvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
     snowCanvas.width = Math.round(r.width * dpr); snowCanvas.height = Math.round(r.height * dpr);
+    const big = Math.max(r.width, r.height);
+    clouds = Array.from({ length: 6 }, (_, i) => ({
+      x: Math.random() * (r.width + big * 0.6) - big * 0.3, y: (i + 0.5) / 6 * r.height + (Math.random() - 0.5) * r.height * 0.15,
+      rx: big * (0.16 + Math.random() * 0.14), ry: big * (0.08 + Math.random() * 0.07), v: 6 + Math.random() * 8 }));
     const n = Math.min(420, Math.round(r.width * r.height / 2300));
     flakes = Array.from({ length: n }, () => {
       const z = Math.random();                       // depth: 0 far, 1 near
@@ -491,6 +500,19 @@
     const r = snowCanvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
     sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     sctx.clearRect(0, 0, r.width, r.height);
+    const ca = cloudAlpha();
+    if (ca > 0.01) {
+      const big = Math.max(r.width, r.height);
+      for (const c of clouds) {
+        if (dt) { c.x += c.v * dt; if (c.x - c.rx > r.width) c.x = -c.rx - Math.random() * big * 0.2; }
+        sctx.save();
+        sctx.translate(c.x, c.y); sctx.scale(1, c.ry / c.rx);
+        const g = sctx.createRadialGradient(0, 0, 0, 0, 0, c.rx);
+        g.addColorStop(0, `rgba(60,72,58,${0.085 * ca})`); g.addColorStop(0.6, `rgba(60,72,58,${0.045 * ca})`); g.addColorStop(1, "rgba(60,72,58,0)");
+        sctx.fillStyle = g; sctx.beginPath(); sctx.arc(0, 0, c.rx, 0, Math.PI * 2); sctx.fill();
+        sctx.restore();
+      }
+    }
     const a = snowAlpha();
     if (a <= 0.01) return;
     sctx.globalAlpha = a;
@@ -509,12 +531,12 @@
     const dt = snowLast ? Math.min(0.05, (now - snowLast) / 1000) : 0;
     snowLast = now;
     drawSnow(dt);
-    if (snowAlpha() > 0.01 || anim) requestAnimationFrame(snowFrame);
+    if (snowAlpha() > 0.01 || cloudAlpha() > 0.01 || anim) requestAnimationFrame(snowFrame);
     else { snowRunning = false; snowLast = 0; }
   }
   function startSnow() {
     if (reduceMotion.matches) { drawSnow(0); return; }   // still flakes, no motion
-    if (!snowRunning && (snowAlpha() > 0.01 || anim)) { snowRunning = true; requestAnimationFrame(snowFrame); }
+    if (!snowRunning && (snowAlpha() > 0.01 || cloudAlpha() > 0.01 || anim)) { snowRunning = true; requestAnimationFrame(snowFrame); }
     if (!snowRunning) drawSnow(0);
   }
   document.getElementById("snowbtn").addEventListener("click", () => { st.snow = !st.snow; writeHash(); renderText(); startSnow(); });
@@ -529,7 +551,7 @@
     const to = targetArrays(st.unit, st.method, st.center);
     VT = to.V; PT = to.P;
     curKey = key(st.unit, st.method, st.center);
-    wmix = st.unit === "winter" ? 1 : 0; applyWinter();
+    wmix = st.unit === "winter" ? 1 : 0; smix = st.unit === "summer" ? 1 : 0;
     makeFlakes(); startSnow();
     if (reduceMotion.matches || st.fixedS) { morph.value = st.s; renderText(); draw(); return; }
     // opening: grow from the normal map into the time map
