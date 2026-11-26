@@ -39,7 +39,8 @@ At the end of the slider the directions are dropped as well and the towns collap
 5. **Radial layout (中心型)** – each town keeps its bearing from the centre (Sapporo or Obihiro city hall) and its distance from the centre becomes *k* × drive time.
 6. **All-pairs layout (全点型)** – metric MDS (classical MDS as the start, refined with SMACOF, scikit-learn) on *k* × drive time for all pairs, then an orthogonal Procrustes fit (rotation, reflection allowed, translation; scale fixed at *k*) to the normal map.
 7. **Warping the map (補間)** – the displacement of the 179 town halls is interpolated over the plane with a **thin-plate spline** (`scipy.interpolate.RBFInterpolator`, kernel `thin_plate_spline`, smoothing 0, so it passes exactly through every town hall) and applied to every boundary and coastline vertex. Only the town-hall positions come from the travel times; everything in between is a choice of interpolation.
-8. **Line (1本の線)** – the last stage of the slider places each town at *k* × drive time from the centre on a horizontal line (the same scale as the map), with a small vertical offset only to keep dots from overlapping.
+8. **Summer satellite layer** – NASA Blue Marble: Next Generation is clipped to Hokkaido (other land is painted with the ocean colour, because only Hokkaido is warped), brightened slightly, and draped on a 6 km mesh that is bent with the same thin-plate spline; it is drawn with WebGL under the boundaries. Winter uses a slate sea with falling snow instead. / 夏は NASA の衛星画像（Blue Marble）を同じ薄板スプラインで変形して表示し、冬は暗い海に雪を降らせています。
+9. **Line (1本の線)** – the last stage of the slider places each town at *k* × drive time from the centre on a horizontal line (the same scale as the map), with a small vertical offset only to keep dots from overlapping.
 
 ## Results / 結果
 
@@ -79,6 +80,7 @@ Fit between distances on each drawing and drive times, over all 15,931 town pair
 | Town halls | 国土数値情報（市町村役場等及び公的集会施設データ）P05, 2022 版, 北海道 (`P05-22_01_GML.zip`) – 出典：国土数値情報（市町村役場等及び公的集会施設データ）を加工して作成 | 2026-11-08 |
 | Roads | OpenStreetMap, Hokkaido extract (data as of 2026-11-07 00:12 UTC), © OpenStreetMap contributors, ODbL. Geofabrik's `hokkaido-latest.osm.pbf` was not reachable from the build environment, so the same-scope extract from download.openstreetmap.fr (`extracts/asia/japan/hokkaido-latest.osm.pbf`) was used. | 2026-11-08 |
 | Routing | OSRM v5.27.1 (`ghcr.io/project-osrm/osrm-backend:v5.27.1`) | 2026-11-08 |
+| Summer satellite image | NASA Blue Marble: Next Generation (NASA Earth Observatory), layer `BlueMarble_NextGeneration` from NASA GIBS WMS (https://gibs.earthdata.nasa.gov/), extent 139.0–146.6°E, 41.0–46.0°N | 2026-11-26 |
 | English names | OpenStreetMap `name:en` of the municipal boundaries | 2026-11-08 |
 | Winter closures (国道) | 釧路開発建設部・網走開発建設部 記者発表「国道334号 知床横断道路 冬期の通行規制」(2025-10-17) https://www.hkd.mlit.go.jp/ks/release/d1uled0000000c60-att/pranac00000004vc.pdf | 2026-11-08 |
 | Winter closures (道道) | 北海道 稚内・釧路・網走・室蘭・旭川・小樽・札幌・留萌建設管理部 令和8年度 冬期通行止区間一覧; 帯広・函館建設管理部 令和7年度 一覧 (each URL and date per section in `data/winter_closures.csv`) | 2026-11-08 |
@@ -102,6 +104,7 @@ python 05_profile_params.py winter && ./osrm_build.sh winter
 python 03_matrix.py winter
 python 04_layout.py                       # layouts + accuracy
 python 06_warp.py                         # thin-plate spline warp → web/data/elastic.json
+python 08_satellite.py                    # summer satellite image + warped mesh
 python 07_notes.py                        # on-screen notes
 cd ..
 python -m http.server -d web 8123         # open http://127.0.0.1:8123/

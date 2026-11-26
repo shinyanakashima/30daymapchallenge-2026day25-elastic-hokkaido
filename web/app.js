@@ -70,6 +70,8 @@
   let view = { scale: 1, tx: 0, ty: 0, w: 0, h: 0 };
   let polyPaths = [], townScreen = [];
   let lineCache = {};
+  let SAT = null, MT = null, mFrom = null, mTo = null;   // summer satellite mesh (WebGL)
+  const satKey = (unit, method, center) => unit === "km" ? "km" : (method === "radial" ? `summer-radial-${center}` : "summer-mds");
   let labelNodes = {};
 
   const key = (unit, method, center) => unit === "km" ? "km" : (method === "radial" ? `${unit}-radial-${center}` : `${unit}-mds`);
@@ -99,6 +101,7 @@
     view.w = r.width; view.h = r.height;
     const dpr = window.devicePixelRatio || 1;
     canvas.width = Math.round(r.width * dpr); canvas.height = Math.round(r.height * dpr);
+    satCanvas.width = canvas.width; satCanvas.height = canvas.height;
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const kk in D.states) {
       const a = D.states[kk];
@@ -167,12 +170,15 @@
     } else prevShape = null;
     curKey = newKey;
     if (!VT || !animate || reduceMotion.matches) {
-      VT = to.V; PT = to.P; anim = null; wmix = wTo; smix = st.unit === "summer" ? 1 : 0; draw(); startSnow();
+      VT = to.V; PT = to.P; anim = null; wmix = wTo; smix = st.unit === "summer" ? 1 : 0;
+      if (SAT) MT = SAT.states[satKey(st.unit, st.method, st.center)];
+      draw(); startSnow();
       if (prevShape) setTimeout(() => { prevShape = null; draw(); }, FADE);
       return;
     }
     wFrom = wmix; sFrom = smix;
     anim = { from: { V: VT.slice(), P: PT.slice() }, to, t0: performance.now(), dur: 1100, wTo, sTo: st.unit === "summer" ? 1 : 0 };
+    if (SAT) { mFrom = MT.slice(); mTo = SAT.states[satKey(st.unit, st.method, st.center)]; }
     requestAnimationFrame(tick);
     startSnow();
   }
@@ -184,10 +190,11 @@
     VT = new Float32Array(a.V.length); PT = new Float32Array(a.P.length);
     for (let i = 0; i < VT.length; i++) VT[i] = a.V[i] + (b.V[i] - a.V[i]) * e;
     for (let i = 0; i < PT.length; i++) PT[i] = a.P[i] + (b.P[i] - a.P[i]) * e;
+    if (SAT && mFrom) { MT = new Float32Array(mFrom.length); for (let i = 0; i < MT.length; i++) MT[i] = mFrom[i] + (mTo[i] - mFrom[i]) * e; }
     wmix = wFrom + (anim.wTo - wFrom) * e;
     smix = sFrom + (anim.sTo - sFrom) * e;
     draw();
-    if (t < 1) requestAnimationFrame(tick); else { anim = null; VT = b.V; PT = b.P; draw(); requestAnimationFrame(fadeTick); }
+    if (t < 1) requestAnimationFrame(tick); else { anim = null; VT = b.V; PT = b.P; if (SAT && mTo) MT = mTo; draw(); requestAnimationFrame(fadeTick); }
   }
   function fadeTick(now) {
     if (anim || !prevShape) return;
@@ -221,16 +228,18 @@
     const css = getComputedStyle(document.documentElement);
     const landAlpha = 1 - 0.9 * s2;
     const landCol = mixHex(mixHex("#e4ded2", "#dde8c4", smix), "#e3e8ee", wmix);
-    // winter: the sea turns slate so the island and the snow stand out (not on the line)
-    // seasons colour the sea (not on the line): summer clear blue, winter slate
+    // seasons (not on the line): summer = satellite image, winter = slate sea with snow
     const fadeLine = 1 - Math.min(1, s2 * 2);
-    const dark = wmix * fadeLine, blue = smix * fadeLine;
-    stage.style.backgroundColor = mixHex(mixHex("#f4f2ee", "#a9d3ea", blue), "#3b4a5a", dark);
+    const sat = SAT ? smix * fadeLine : 0;
+    const dark = Math.max(wmix * fadeLine, sat);
+    stage.style.backgroundColor = mixHex(mixHex("#f4f2ee", SAT ? SAT.ocean : "#a9d3ea", smix * fadeLine), "#3b4a5a", wmix * fadeLine);
     stage.classList.toggle("dark", dark > 0.5);
+    stage.classList.toggle("sat", sat > 0.5);
+    drawSat(s1, sat);
 
     // land
     polyPaths = [];
-    ctx.globalAlpha = landAlpha;
+    ctx.globalAlpha = landAlpha * (1 - sat);
     ctx.lineJoin = "round";
     for (const poly of D.polys) {
       const p = new Path2D();
@@ -244,10 +253,16 @@
       ctx.fillStyle = poly._sel ? mixHex("#d8cdb6", "#c9d3de", wmix) : landCol;
       ctx.fill(p, "evenodd");
     }
+    ctx.globalAlpha = landAlpha * (1 - 0.6 * sat);
     ctx.strokeStyle = css.getPropertyValue("--land-edge"); ctx.lineWidth = 0.8;
     for (const p of polyPaths) ctx.stroke(p);
+    ctx.globalAlpha = landAlpha;
+    if (st.sel != null && sat > 0) {                       // keep the selected town visible on the image
+      const i = D.polys.findIndex(p => p._sel);
+      if (i >= 0) { ctx.save(); ctx.globalAlpha = 0.35 * sat; ctx.fillStyle = "#ffffff"; ctx.fill(polyPaths[i], "evenodd"); ctx.restore(); }
+    }
     // coast
-    ctx.strokeStyle = mixHex("#6b6559", "#1f2a35", dark); ctx.lineWidth = 1;
+    ctx.strokeStyle = mixHex(mixHex("#6b6559", "#1f2a35", wmix * fadeLine), "#cfe3b8", sat); ctx.lineWidth = 1;
     ctx.beginPath();
     for (const ln of D.coast) {
       ctx.moveTo(vx[ln[0]], vy[ln[0]]);
@@ -476,6 +491,67 @@
   ["unit", "method", "center"].forEach(bindSeg);
   new ResizeObserver(() => { if (D) { computeView(); draw(); makeFlakes(); startSnow(); } }).observe(canvas);
 
+  // ---------- summer satellite (WebGL mesh) ----------
+  const satCanvas = document.getElementById("sat");
+  const gl = satCanvas.getContext("webgl", { premultipliedAlpha: false, antialias: true });
+  let glProg, glPos, glUV, glIdx, glTex, glN = 0, posBuf;
+  function initSat(mesh, img) {
+    if (!gl) return false;
+    const sh = (type, src) => { const o = gl.createShader(type); gl.shaderSource(o, src); gl.compileShader(o); return o; };
+    glProg = gl.createProgram();
+    gl.attachShader(glProg, sh(gl.VERTEX_SHADER, "attribute vec2 p; attribute vec2 uv; uniform vec2 res; varying vec2 v;" +
+      "void main(){ v = uv; gl_Position = vec4(p.x / res.x * 2.0 - 1.0, 1.0 - p.y / res.y * 2.0, 0.0, 1.0); }"));
+    gl.attachShader(glProg, sh(gl.FRAGMENT_SHADER, "precision mediump float; varying vec2 v; uniform sampler2D t; uniform float a;" +
+      "void main(){ vec4 c = texture2D(t, v); float e = min(min(v.x, 1.0 - v.x), min(v.y, 1.0 - v.y));" +
+      " gl_FragColor = vec4(c.rgb, a * smoothstep(0.0, 0.04, e)); }"));
+    gl.linkProgram(glProg);
+    if (!gl.getProgramParameter(glProg, gl.LINK_STATUS)) return false;
+    glPos = gl.getAttribLocation(glProg, "p"); glUV = gl.getAttribLocation(glProg, "uv");
+    const uvBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, uvBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mesh.uv), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(glUV); gl.vertexAttribPointer(glUV, 2, gl.FLOAT, false, 0, 0);
+    posBuf = gl.createBuffer();
+    glIdx = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, glIdx);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(mesh.tris), gl.STATIC_DRAW); glN = mesh.tris.length;
+    glTex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, glTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    return true;
+  }
+  function drawSat(s1, alpha) {
+    if (!gl) return;
+    gl.viewport(0, 0, satCanvas.width, satCanvas.height);
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    if (!SAT || !MT || alpha <= 0.01) return;
+    const M0 = SAT.states.km, n = M0.length / 2, dpr = window.devicePixelRatio || 1;
+    const pos = new Float32Array(2 * n);
+    for (let i = 0; i < n; i++) {
+      pos[2 * i] = sx(M0[2 * i] + (MT[2 * i] - M0[2 * i]) * s1) * dpr;
+      pos[2 * i + 1] = sy(M0[2 * i + 1] + (MT[2 * i + 1] - M0[2 * i + 1]) * s1) * dpr;
+    }
+    gl.useProgram(glProg);
+    gl.bindBuffer(gl.ARRAY_BUFFER, posBuf); gl.bufferData(gl.ARRAY_BUFFER, pos, gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(glPos); gl.vertexAttribPointer(glPos, 2, gl.FLOAT, false, 0, 0);
+    gl.uniform2f(gl.getUniformLocation(glProg, "res"), satCanvas.width, satCanvas.height);
+    gl.uniform1f(gl.getUniformLocation(glProg, "a"), alpha);
+    gl.bindTexture(gl.TEXTURE_2D, glTex);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, glIdx);
+    gl.drawElements(gl.TRIANGLES, glN, gl.UNSIGNED_SHORT, 0);
+  }
+  function loadSat() {
+    fetch("data/satellite_mesh.json").then(r => r.json()).then(mesh => {
+      const img = new Image();
+      img.onload = () => {
+        if (!initSat(mesh, img)) return;
+        const st2 = {}; for (const kk in mesh.states) st2[kk] = f32(mesh.states[kk]);
+        SAT = { ocean: mesh.ocean, states: st2 };
+        MT = SAT.states[satKey(st.unit, st.method, st.center)];
+        draw();
+      };
+      img.src = "data/" + mesh.image;
+    }).catch(() => {});
+  }
+
   // ---------- snow ----------
   const snowCanvas = document.getElementById("snow");
   const sctx = snowCanvas.getContext("2d");
@@ -489,13 +565,13 @@
     snowCanvas.width = Math.round(r.width * dpr); snowCanvas.height = Math.round(r.height * dpr);
     const big = Math.max(r.width, r.height);
     // fair-weather clouds: each one a few soft puffs in a row
-    clouds = Array.from({ length: 7 }, (_, i) => {
+    clouds = Array.from({ length: 5 }, (_, i) => {
       const size = big * (0.035 + Math.random() * 0.03);
       const np = 4 + Math.floor(Math.random() * 3);
       const puffs = Array.from({ length: np }, (_, j) => ({
         dx: (j - (np - 1) / 2) * size * 0.9 + (Math.random() - 0.5) * size * 0.3,
         dy: (Math.random() - 0.5) * size * 0.5 - (j % 2) * size * 0.25, r: size * (0.8 + Math.random() * 0.6) }));
-      return { x: Math.random() * r.width, y: (i + 0.5) / 7 * r.height + (Math.random() - 0.5) * r.height * 0.1,
+      return { x: Math.random() * r.width, y: (i + 0.5) / 5 * r.height + (Math.random() - 0.5) * r.height * 0.1,
                w: size * puffs.length, puffs, v: 7 + Math.random() * 9 };
     });
     const n = Math.min(420, Math.round(r.width * r.height / 2300));
@@ -517,7 +593,7 @@
         for (const p of c.puffs) {
           const x = c.x + p.dx, y = c.y + p.dy;
           const g = sctx.createRadialGradient(x, y, 0, x, y, p.r);
-          g.addColorStop(0, `rgba(255,255,255,${0.5 * ca})`); g.addColorStop(0.55, `rgba(255,255,255,${0.3 * ca})`); g.addColorStop(1, "rgba(255,255,255,0)");
+          g.addColorStop(0, `rgba(255,255,255,${0.3 * ca})`); g.addColorStop(0.55, `rgba(255,255,255,${0.17 * ca})`); g.addColorStop(1, "rgba(255,255,255,0)");
           sctx.fillStyle = g; sctx.beginPath(); sctx.arc(x, y, p.r, 0, Math.PI * 2); sctx.fill();
         }
       }
@@ -561,7 +637,7 @@
     VT = to.V; PT = to.P;
     curKey = key(st.unit, st.method, st.center);
     wmix = st.unit === "winter" ? 1 : 0; smix = st.unit === "summer" ? 1 : 0;
-    makeFlakes(); startSnow();
+    makeFlakes(); startSnow(); loadSat();
     if (reduceMotion.matches || st.fixedS) { morph.value = st.s; renderText(); draw(); return; }
     // opening: grow from the normal map into the time map
     st.s = 0; morph.value = 0; draw();
