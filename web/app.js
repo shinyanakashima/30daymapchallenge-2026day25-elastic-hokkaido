@@ -220,10 +220,12 @@
     }
     const css = getComputedStyle(document.documentElement);
     const landAlpha = 1 - 0.9 * s2;
-    const landCol = mixHex(mixHex("#e4ded2", "#e2e4cf", smix), "#e3e8ee", wmix);
+    const landCol = mixHex(mixHex("#e4ded2", "#dde8c4", smix), "#e3e8ee", wmix);
     // winter: the sea turns slate so the island and the snow stand out (not on the line)
-    const dark = wmix * (1 - Math.min(1, s2 * 2));
-    stage.style.backgroundColor = mixHex("#f4f2ee", "#3b4a5a", dark);
+    // seasons colour the sea (not on the line): summer clear blue, winter slate
+    const fadeLine = 1 - Math.min(1, s2 * 2);
+    const dark = wmix * fadeLine, blue = smix * fadeLine;
+    stage.style.backgroundColor = mixHex(mixHex("#f4f2ee", "#a9d3ea", blue), "#3b4a5a", dark);
     stage.classList.toggle("dark", dark > 0.5);
 
     // land
@@ -486,9 +488,16 @@
     const r = snowCanvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
     snowCanvas.width = Math.round(r.width * dpr); snowCanvas.height = Math.round(r.height * dpr);
     const big = Math.max(r.width, r.height);
-    clouds = Array.from({ length: 6 }, (_, i) => ({
-      x: Math.random() * (r.width + big * 0.6) - big * 0.3, y: (i + 0.5) / 6 * r.height + (Math.random() - 0.5) * r.height * 0.15,
-      rx: big * (0.16 + Math.random() * 0.14), ry: big * (0.08 + Math.random() * 0.07), v: 6 + Math.random() * 8 }));
+    // fair-weather clouds: each one a few soft puffs in a row
+    clouds = Array.from({ length: 7 }, (_, i) => {
+      const size = big * (0.035 + Math.random() * 0.03);
+      const np = 4 + Math.floor(Math.random() * 3);
+      const puffs = Array.from({ length: np }, (_, j) => ({
+        dx: (j - (np - 1) / 2) * size * 0.9 + (Math.random() - 0.5) * size * 0.3,
+        dy: (Math.random() - 0.5) * size * 0.5 - (j % 2) * size * 0.25, r: size * (0.8 + Math.random() * 0.6) }));
+      return { x: Math.random() * r.width, y: (i + 0.5) / 7 * r.height + (Math.random() - 0.5) * r.height * 0.1,
+               w: size * puffs.length, puffs, v: 7 + Math.random() * 9 };
+    });
     const n = Math.min(420, Math.round(r.width * r.height / 2300));
     flakes = Array.from({ length: n }, () => {
       const z = Math.random();                       // depth: 0 far, 1 near
@@ -504,13 +513,13 @@
     if (ca > 0.01) {
       const big = Math.max(r.width, r.height);
       for (const c of clouds) {
-        if (dt) { c.x += c.v * dt; if (c.x - c.rx > r.width) c.x = -c.rx - Math.random() * big * 0.2; }
-        sctx.save();
-        sctx.translate(c.x, c.y); sctx.scale(1, c.ry / c.rx);
-        const g = sctx.createRadialGradient(0, 0, 0, 0, 0, c.rx);
-        g.addColorStop(0, `rgba(60,72,58,${0.085 * ca})`); g.addColorStop(0.6, `rgba(60,72,58,${0.045 * ca})`); g.addColorStop(1, "rgba(60,72,58,0)");
-        sctx.fillStyle = g; sctx.beginPath(); sctx.arc(0, 0, c.rx, 0, Math.PI * 2); sctx.fill();
-        sctx.restore();
+        if (dt) { c.x += c.v * dt; if (c.x - c.w > r.width) c.x = -c.w - Math.random() * big * 0.15; }
+        for (const p of c.puffs) {
+          const x = c.x + p.dx, y = c.y + p.dy;
+          const g = sctx.createRadialGradient(x, y, 0, x, y, p.r);
+          g.addColorStop(0, `rgba(255,255,255,${0.5 * ca})`); g.addColorStop(0.55, `rgba(255,255,255,${0.3 * ca})`); g.addColorStop(1, "rgba(255,255,255,0)");
+          sctx.fillStyle = g; sctx.beginPath(); sctx.arc(x, y, p.r, 0, Math.PI * 2); sctx.fill();
+        }
       }
     }
     const a = snowAlpha();
